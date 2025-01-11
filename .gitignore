@@ -63,6 +63,7 @@ pyvenv.cfg
 .venv
 venv
 .env
+__pycache__
 pip-selfcheck.json
 
 ### VisualStudioCode ###

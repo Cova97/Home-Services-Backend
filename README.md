@@ -51,46 +51,21 @@ Instala las bibliotecas necesarias desde el archivo `requirements.txt`:
 pip install -r requirements.txt
 ```
 
----
-
-### **4. Configurar el proyecto**
-Si es necesario, actualiza las configuraciones del proyecto en el archivo `settings.py`.
-
----
-
-### **5. Migrar la base de datos**
-Ejecuta las migraciones para configurar la base de datos:
-```bash
-python manage.py makemigrations
-python manage.py migrate
-```
-
----
-
 ### **6. Ejecutar el servidor de desarrollo**
 Inicia el servidor para probar el proyecto.
 
 #### En Linux/macOS:
 ```bash
-python3 manage.py runserver
+fastapi dev main.py
 ```
 
 #### En Windows:
 ```bash
-python manage.py runserver
+fastapi dev main.py
 ```
 
 Accede al proyecto en tu navegador: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
----
-
-## **7. Crear un superusuario (opcional)**
-Si deseas usar el panel de administración de Django:
-```bash
-python manage.py createsuperuser
-```
-
----
 
 ## **Comandos útiles**
 - **Para desactivar el entorno virtual**:
