@@ -51,7 +51,7 @@ Instala las bibliotecas necesarias desde el archivo `requirements.txt`:
 pip install -r requirements.txt
 ```
 
-### **6. Ejecutar el servidor de desarrollo**
+### **4. Ejecutar el servidor de desarrollo**
 Inicia el servidor para probar el proyecto.
 
 #### En Linux/macOS:
