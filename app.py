@@ -38,11 +38,11 @@ def main():
     
     # Crear un usuario de tipo 'cliente'
     print("\nCreando usuario de tipo 'cliente'...")
-    cliente_uid = user_service.crear_usuario('cliente3@example.com', 'password123', 'cliente')
+    cliente_uid = user_service.crear_usuario('cliente4@example.com', 'password123', 'cliente')
     
     # Crear un usuario de tipo 'proveedor'
     print("\nCreando usuario de tipo 'proveedor'...")
-    proveedor_uid = user_service.crear_usuario('proveedor3@example.com', 'password123', 'proveedor')
+    proveedor_uid = user_service.crear_usuario('proveedor4@example.com', 'password123', 'proveedor')
 
 if __name__ == "__main__":
     main()
