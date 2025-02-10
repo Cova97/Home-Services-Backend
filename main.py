@@ -119,12 +119,8 @@ def login(user: UserLoginRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al autenticar usuario: {str(e)}")
 
-# Ruta de prueba
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+# Ruta para el chequeo de estado de la API HEALTCHECK
+@app.get("/healthcheck")
+def healthcheck():
+    return {"message": "API en funcionamiento"}
 
-# Ruta de ejemplo
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
