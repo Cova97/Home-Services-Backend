@@ -4,17 +4,22 @@ from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin
 from firebase_admin import credentials, auth, firestore
 from pydantic import BaseModel
+from services.google_maps import GoogleMaps
 
 # Modelos Pydantic para las solicitudes
 class UserCreateRequest(BaseModel):
     email: str
     password: str
     tipo_usuario: str  # 'cliente' o 'proveedor'
+    direccion: str  # Dirección del usuario
+    nombre: str  # Nombre del usuario
+    apellido: str  # Apellido del usuario
+    telefono: str  # Teléfono del usuario
 
 class UserLoginRequest(BaseModel):
     email: str
     password: str
-    rol_deseado: str # 'cliente' o 'proveedor'
+    rol_deseado: str  # 'cliente' o 'proveedor'
 
 # Inicializar Firebase
 cred_path = 'serviceshomebackend-firebase.json'
@@ -75,11 +80,45 @@ def crear_usuario(user: UserCreateRequest):
                 password=user.password
             )
             
-            user_data = {
-                'email': user.email,
-                'tipo_usuario': [user.tipo_usuario]  # Almacenar el rol como una lista
-            }
+            # Crear el objeto de GoogleMaps
+            maps = GoogleMaps()
             
+            # Si el usuario es un proveedor o cliente, capturar y almacenar la dirección
+            if user.tipo_usuario == 'proveedor' or user.tipo_usuario == 'cliente':
+                # Geocodificar la dirección
+                geocode_result = maps.get_geocode(user.direccion)
+                if not geocode_result:
+                    raise HTTPException(status_code=400, detail="No se pudo geocodificar la dirección.")
+                
+                # Extraer latitud y longitud
+                location = geocode_result[0]['geometry']['location']
+                lat = location['lat']
+                lng = location['lng']
+                
+                # Almacenar la dirección y la ubicación en Firestore
+                user_data = {
+                    'email': user.email,
+                    'tipo_usuario': [user.tipo_usuario],  # Almacenar el rol como una lista
+                    'direccion': user.direccion,  # Almacenar la dirección
+                    'ubicacion': {  # Almacenar la ubicación (latitud y longitud)
+                        'lat': lat,
+                        'lng': lng
+                    },
+                    'nombre': user.nombre,  # Almacenar el nombre
+                    'apellido': user.apellido,  # Almacenar el apellido
+                    'telefono': user.telefono  # Almacenar el teléfono
+                }
+            else:
+                # Si el usuario no es un proveedor, solo almacenar el rol
+                user_data = {
+                    'email': user.email,
+                    'tipo_usuario': [user.tipo_usuario],  # Almacenar el rol como una lista
+                    'nombre': user.nombre,  # Almacenar el nombre
+                    'apellido': user.apellido,  # Almacenar el apellido
+                    'telefono': user.telefono  # Almacenar el teléfono
+                }
+            
+            # Guardar los datos del usuario en Firestore
             db.collection('usuarios').document(user_record.uid).set(user_data)
             return {"message": "Usuario creado con éxito", "uid": user_record.uid}
     except Exception as e:
@@ -123,4 +162,3 @@ def login(user: UserLoginRequest):
 @app.get("/healthcheck")
 def healthcheck():
     return {"message": "API en funcionamiento"}
-
