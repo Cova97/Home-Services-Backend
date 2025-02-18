@@ -67,8 +67,7 @@ async def crear_usuario(
 
         # Extraer latitud y longitud
         location = geocode_result[0]['geometry']['location']
-        lat = location['lat']
-        lng = location['lng']
+        lat, lng = location['lat'], location['lng']
 
         # Crear el usuario
         user_uid = user_service.create_user(
@@ -99,7 +98,6 @@ def login(user: UserLoginRequest):
     """
     try:
         # Autenticar al usuario (esto normalmente lo haría el cliente)
-        # Aquí simulamos la autenticación obteniendo el usuario por email
         user_record = firebase_service.get_user_by_email(user.email)
         
         # Obtener información adicional del usuario desde Firestore

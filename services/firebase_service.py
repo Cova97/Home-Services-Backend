@@ -80,10 +80,7 @@ class FirebaseService:
         try:
             doc_ref = self.db.collection(collection).document(document_id)
             doc = doc_ref.get()
-            if doc.exists:
-                return doc.to_dict()
-            else:
-                return None
+            return doc.to_dict() if doc.exists else None
         except Exception as e:
             print(f"Error al obtener documento de Firestore: {e}")
             return None

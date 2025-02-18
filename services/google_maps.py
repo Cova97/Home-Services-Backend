@@ -17,8 +17,7 @@ class GoogleMaps:
         :return: Resultado de la geocodificación o None si hay un error.
         """
         try:
-            geocode = self.client.geocode(address)
-            return geocode
+            return self.client.geocode(address)
         except Exception as e:
             print(f"Error al obtener geocodificación: {e}")
             return None
@@ -32,8 +31,7 @@ class GoogleMaps:
         :return: Resultado de la matriz de distancia o None si hay un error.
         """
         try:
-            distance = self.client.distance_matrix(origin, destination)
-            return distance
+            return self.client.distance_matrix(origin, destination)
         except Exception as e:
             print(f"Error al obtener distancia: {e}")
             return None

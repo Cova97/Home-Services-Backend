@@ -48,9 +48,7 @@ class UserService:
                     return None
 
                 # Si no tiene el rol, agregarlo a la lista de roles
-                if 'tipo_usuario' not in user_data:
-                    user_data['tipo_usuario'] = []
-                user_data['tipo_usuario'].append(tipo_usuario)
+                user_data.setdefault('tipo_usuario', []).append(tipo_usuario)
 
                 # Actualizar el documento en Firestore
                 self.db.collection('usuarios').document(user_uid).update(user_data)
