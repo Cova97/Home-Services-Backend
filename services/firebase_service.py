@@ -1,5 +1,5 @@
 import firebase_admin
-from firebase_admin import credentials, auth, firestore
+from firebase_admin import credentials, auth, firestore, storage
 
 class FirebaseService:
     def __init__(self, cred_path):
@@ -11,6 +11,7 @@ class FirebaseService:
         self.cred_path = cred_path
         self.initialize_firebase()
         self.db = firestore.client()
+        self.bucket = storage.bucket()  # Inicializa el bucket de Firebase Storage
 
     def initialize_firebase(self):
         """
@@ -18,7 +19,9 @@ class FirebaseService:
         """
         try:
             cred = credentials.Certificate(self.cred_path)
-            firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred, {
+                'storageBucket': 'serviceshomebackend.firebasestorage.app'  # Especifica el nombre del bucket
+            })
             print("Firebase inicializado correctamente.")
         except Exception as e:
             print(f"Error al inicializar Firebase: {e}")
@@ -101,18 +104,19 @@ class FirebaseService:
             print(f"Error al establecer documento en Firestore: {e}")
             return False
 
-    def update_firestore_document(self, collection, document_id, data):
+    def upload_file_to_storage(self, file, destination_path):
         """
-        Actualiza un documento en Firestore.
+        Sube un archivo a Firebase Storage.
 
-        :param collection: Nombre de la colección.
-        :param document_id: ID del documento.
-        :param data: Datos a actualizar en el documento.
-        :return: True si se actualizó correctamente, False si hubo un error.
+        :param file: Archivo a subir.
+        :param destination_path: Ruta de destino en Firebase Storage.
+        :return: URL del archivo subido o None si hay un error.
         """
         try:
-            self.db.collection(collection).document(document_id).update(data)
-            return True
+            blob = self.bucket.blob(destination_path)
+            blob.upload_from_file(file.file, content_type=file.content_type)
+            blob.make_public()
+            return blob.public_url
         except Exception as e:
-            print(f"Error al actualizar documento en Firestore: {e}")
-            return False
+            print(f"Error al subir archivo a Firebase Storage: {e}")
+            return None

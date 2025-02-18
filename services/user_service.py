@@ -1,15 +1,17 @@
 from firebase_admin import auth
 
 class UserService:
-    def __init__(self, db):
+    def __init__(self, db, firebase_service):
         """
-        Inicializa UserService con una instancia de Firestore.
+        Inicializa UserService con una instancia de Firestore y FirebaseService.
 
         :param db: Instancia de Firestore.
+        :param firebase_service: Instancia de FirebaseService.
         """
         self.db = db
+        self.firebase_service = firebase_service
 
-    def create_user(self, email, password, tipo_usuario):
+    def create_user(self, email, password, tipo_usuario, nombre, apellido, telefono, direccion=None, archivo_pdf=None):
         """
         Crea un nuevo usuario en Firebase Authentication y almacena información adicional en Firestore.
         Si el usuario ya existe, agrega el nuevo rol a la lista de roles.
@@ -17,6 +19,11 @@ class UserService:
         :param email: Correo electrónico del usuario.
         :param password: Contraseña del usuario.
         :param tipo_usuario: Tipo de usuario ('cliente' o 'proveedor').
+        :param nombre: Nombre del usuario.
+        :param apellido: Apellido del usuario.
+        :param telefono: Teléfono del usuario.
+        :param direccion: Dirección del usuario (opcional).
+        :param archivo_pdf: Archivo PDF para proveedores (opcional).
         :return: UID del usuario creado o None si hay un error.
         """
         if tipo_usuario not in ['cliente', 'proveedor']:
@@ -49,19 +56,32 @@ class UserService:
                 return user_uid
             else:
                 # Si el usuario no existe, crear uno nuevo
-                user = auth.create_user(
-                    email=email,
-                    password=password
-                )
+                user_uid = self.firebase_service.create_user(email, password)
                 
                 user_data = {
                     'email': email,
-                    'tipo_usuario': [tipo_usuario]  # Almacenar el rol como una lista
+                    'tipo_usuario': [tipo_usuario],  # Almacenar el rol como una lista
+                    'nombre': nombre,
+                    'apellido': apellido,
+                    'telefono': telefono
                 }
+
+                # Si el usuario es un proveedor, subir el archivo PDF y almacenar la URL
+                if tipo_usuario == 'proveedor' and archivo_pdf:
+                    pdf_url = self.firebase_service.upload_file_to_storage(archivo_pdf, f"proveedores/{user_uid}/documento.pdf")
+                    if pdf_url:
+                        user_data['pdf_url'] = pdf_url
+                    else:
+                        print("Error al subir el archivo PDF.")
                 
-                self.db.collection('usuarios').document(user.uid).set(user_data)
-                print(f"Usuario registrado con éxito: {user.uid}")
-                return user.uid
+                # Si el usuario es un proveedor o cliente, almacenar la dirección
+                if tipo_usuario == 'proveedor' or tipo_usuario == 'cliente':
+                    user_data['direccion'] = direccion
+                
+                # Guardar los datos del usuario en Firestore
+                self.db.collection('usuarios').document(user_uid).set(user_data)
+                print(f"Usuario registrado con éxito: {user_uid}")
+                return user_uid
         except Exception as e:
             print(f"Error al registrar usuario: {e}")
             return None

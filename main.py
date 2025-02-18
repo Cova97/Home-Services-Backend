@@ -1,5 +1,5 @@
 from typing import Union
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from services.firebase_service import FirebaseService
@@ -15,6 +15,7 @@ class UserCreateRequest(BaseModel):
     nombre: str  # Nombre del usuario
     apellido: str  # Apellido del usuario
     telefono: str  # Teléfono del usuario
+    archivo_pdf: UploadFile = None  # Archivo PDF opcional para proveedores
 
 class UserLoginRequest(BaseModel):
     email: str
@@ -25,7 +26,7 @@ class UserLoginRequest(BaseModel):
 cred_path = 'serviceshomebackend-firebase.json'
 firebase_service = FirebaseService(cred_path)
 google_maps_service = GoogleMaps()
-user_service = UserService(firebase_service.db)
+user_service = UserService(firebase_service.db, firebase_service)
 
 # Configuración de FastAPI
 app = FastAPI()
@@ -41,78 +42,40 @@ app.add_middleware(
 
 # Ruta para crear un usuario
 @app.post("/crear-usuario")
-def crear_usuario(user: UserCreateRequest):
+async def crear_usuario(
+    email: str = Form(...),
+    password: str = Form(...),
+    tipo_usuario: str = Form(...),
+    direccion: str = Form(...),
+    nombre: str = Form(...),
+    apellido: str = Form(...),
+    telefono: str = Form(...),
+    archivo_pdf: UploadFile = File(None)
+):
     """
     Crea un nuevo usuario en Firebase Authentication y almacena información adicional en Firestore.
     Si el usuario ya existe, agrega el nuevo rol a la lista de roles.
     """
-    if user.tipo_usuario not in ['cliente', 'proveedor']:
+    if tipo_usuario not in ['cliente', 'proveedor']:
         raise HTTPException(status_code=400, detail="Tipo de usuario no válido. Debe ser 'cliente' o 'proveedor'.")
 
     try:
-        # Verificar si el usuario ya existe en Firestore
-        user_query = firebase_service.db.collection('usuarios').where('email', '==', user.email).limit(1).get()
-        
-        if user_query:
-            # Si el usuario ya existe, obtener sus datos
-            user_doc = user_query[0]
-            user_data = user_doc.to_dict()
-            user_uid = user_doc.id
+        # Crear el usuario
+        user_uid = user_service.create_user(
+            email=email,
+            password=password,
+            tipo_usuario=tipo_usuario,
+            nombre=nombre,
+            apellido=apellido,
+            telefono=telefono,
+            direccion=direccion,
+            archivo_pdf=archivo_pdf
+        )
 
-            # Verificar si el usuario ya tiene el rol que se está intentando registrar
-            if 'tipo_usuario' in user_data and user.tipo_usuario in user_data['tipo_usuario']:
-                raise HTTPException(status_code=400, detail=f"El usuario ya tiene el rol de {user.tipo_usuario}.")
-
-            # Si no tiene el rol, agregarlo a la lista de roles
-            if 'tipo_usuario' not in user_data:
-                user_data['tipo_usuario'] = []
-            user_data['tipo_usuario'].append(user.tipo_usuario)
-
-            # Actualizar el documento en Firestore
-            firebase_service.db.collection('usuarios').document(user_uid).update(user_data)
-            return {"message": f"Rol {user.tipo_usuario} agregado al usuario {user_uid}."}
+        if user_uid:
+            return {"message": "Usuario creado con éxito", "uid": user_uid}
         else:
-            # Si el usuario no existe, crear uno nuevo
-            user_record = firebase_service.create_user(user.email, user.password)
-            
-            # Si el usuario es un proveedor o cliente, capturar y almacenar la dirección
-            if user.tipo_usuario == 'proveedor' or user.tipo_usuario == 'cliente':
-                # Geocodificar la dirección
-                geocode_result = google_maps_service.get_geocode(user.direccion)
-                if not geocode_result:
-                    raise HTTPException(status_code=400, detail="No se pudo geocodificar la dirección.")
-                
-                # Extraer latitud y longitud
-                location = geocode_result[0]['geometry']['location']
-                lat = location['lat']
-                lng = location['lng']
-                
-                # Almacenar la dirección y la ubicación en Firestore
-                user_data = {
-                    'email': user.email,
-                    'tipo_usuario': [user.tipo_usuario],  # Almacenar el rol como una lista
-                    'direccion': user.direccion,  # Almacenar la dirección
-                    'ubicacion': {  # Almacenar la ubicación (latitud y longitud)
-                        'lat': lat,
-                        'lng': lng
-                    },
-                    'nombre': user.nombre,  # Almacenar el nombre
-                    'apellido': user.apellido,  # Almacenar el apellido
-                    'telefono': user.telefono  # Almacenar el teléfono
-                }
-            else:
-                # Si el usuario no es un proveedor, solo almacenar el rol
-                user_data = {
-                    'email': user.email,
-                    'tipo_usuario': [user.tipo_usuario],  # Almacenar el rol como una lista
-                    'nombre': user.nombre,  # Almacenar el nombre
-                    'apellido': user.apellido,  # Almacenar el apellido
-                    'telefono': user.telefono  # Almacenar el teléfono
-                }
-            
-            # Guardar los datos del usuario en Firestore
-            firebase_service.set_firestore_document('usuarios', user_record, user_data)
-            return {"message": "Usuario creado con éxito", "uid": user_record}
+            raise HTTPException(status_code=400, detail="Error al crear usuario.")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al crear usuario: {str(e)}")
 
