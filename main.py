@@ -1,10 +1,10 @@
 from typing import Union
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import firebase_admin
-from firebase_admin import credentials, auth, firestore
 from pydantic import BaseModel
+from services.firebase_service import FirebaseService
 from services.google_maps import GoogleMaps
+from services.user_service import UserService
 
 # Modelos Pydantic para las solicitudes
 class UserCreateRequest(BaseModel):
@@ -21,13 +21,11 @@ class UserLoginRequest(BaseModel):
     password: str
     rol_deseado: str  # 'cliente' o 'proveedor'
 
-# Inicializar Firebase
+# Inicializar servicios
 cred_path = 'serviceshomebackend-firebase.json'
-cred = credentials.Certificate(cred_path)
-firebase_admin.initialize_app(cred)
-
-# Inicializar Firestore
-db = firestore.client()
+firebase_service = FirebaseService(cred_path)
+google_maps_service = GoogleMaps()
+user_service = UserService(firebase_service.db)
 
 # Configuración de FastAPI
 app = FastAPI()
@@ -53,7 +51,7 @@ def crear_usuario(user: UserCreateRequest):
 
     try:
         # Verificar si el usuario ya existe en Firestore
-        user_query = db.collection('usuarios').where('email', '==', user.email).limit(1).get()
+        user_query = firebase_service.db.collection('usuarios').where('email', '==', user.email).limit(1).get()
         
         if user_query:
             # Si el usuario ya existe, obtener sus datos
@@ -71,22 +69,16 @@ def crear_usuario(user: UserCreateRequest):
             user_data['tipo_usuario'].append(user.tipo_usuario)
 
             # Actualizar el documento en Firestore
-            db.collection('usuarios').document(user_uid).update(user_data)
+            firebase_service.db.collection('usuarios').document(user_uid).update(user_data)
             return {"message": f"Rol {user.tipo_usuario} agregado al usuario {user_uid}."}
         else:
             # Si el usuario no existe, crear uno nuevo
-            user_record = auth.create_user(
-                email=user.email,
-                password=user.password
-            )
-            
-            # Crear el objeto de GoogleMaps
-            maps = GoogleMaps()
+            user_record = firebase_service.create_user(user.email, user.password)
             
             # Si el usuario es un proveedor o cliente, capturar y almacenar la dirección
             if user.tipo_usuario == 'proveedor' or user.tipo_usuario == 'cliente':
                 # Geocodificar la dirección
-                geocode_result = maps.get_geocode(user.direccion)
+                geocode_result = google_maps_service.get_geocode(user.direccion)
                 if not geocode_result:
                     raise HTTPException(status_code=400, detail="No se pudo geocodificar la dirección.")
                 
@@ -119,8 +111,8 @@ def crear_usuario(user: UserCreateRequest):
                 }
             
             # Guardar los datos del usuario en Firestore
-            db.collection('usuarios').document(user_record.uid).set(user_data)
-            return {"message": "Usuario creado con éxito", "uid": user_record.uid}
+            firebase_service.set_firestore_document('usuarios', user_record, user_data)
+            return {"message": "Usuario creado con éxito", "uid": user_record}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al crear usuario: {str(e)}")
 
@@ -133,11 +125,10 @@ def login(user: UserLoginRequest):
     try:
         # Autenticar al usuario (esto normalmente lo haría el cliente)
         # Aquí simulamos la autenticación obteniendo el usuario por email
-        user_record = auth.get_user_by_email(user.email)
+        user_record = firebase_service.get_user_by_email(user.email)
         
         # Obtener información adicional del usuario desde Firestore
-        user_ref = db.collection('usuarios').document(user_record.uid)
-        user_data = user_ref.get().to_dict()
+        user_data = firebase_service.get_firestore_document('usuarios', user_record.uid)
         
         if user_data:
             # Verificar si el usuario tiene el rol deseado

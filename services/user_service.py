@@ -9,7 +9,7 @@ class UserService:
         """
         self.db = db
 
-    def crear_usuario(self, email, password, tipo_usuario):
+    def create_user(self, email, password, tipo_usuario):
         """
         Crea un nuevo usuario en Firebase Authentication y almacena información adicional en Firestore.
         Si el usuario ya existe, agrega el nuevo rol a la lista de roles.
