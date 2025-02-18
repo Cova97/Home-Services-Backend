@@ -60,6 +60,16 @@ async def crear_usuario(
         raise HTTPException(status_code=400, detail="Tipo de usuario no válido. Debe ser 'cliente' o 'proveedor'.")
 
     try:
+        # Geocodificar la dirección (obtener latitud y longitud)
+        geocode_result = google_maps_service.get_geocode(direccion)
+        if not geocode_result:
+            raise HTTPException(status_code=400, detail="No se pudo geocodificar la dirección.")
+
+        # Extraer latitud y longitud
+        location = geocode_result[0]['geometry']['location']
+        lat = location['lat']
+        lng = location['lng']
+
         # Crear el usuario
         user_uid = user_service.create_user(
             email=email,
@@ -69,7 +79,9 @@ async def crear_usuario(
             apellido=apellido,
             telefono=telefono,
             direccion=direccion,
-            archivo_pdf=archivo_pdf
+            archivo_pdf=archivo_pdf,
+            latitud=lat,
+            longitud=lng
         )
 
         if user_uid:

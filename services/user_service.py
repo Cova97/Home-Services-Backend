@@ -11,7 +11,7 @@ class UserService:
         self.db = db
         self.firebase_service = firebase_service
 
-    def create_user(self, email, password, tipo_usuario, nombre, apellido, telefono, direccion=None, archivo_pdf=None):
+    def create_user(self, email, password, tipo_usuario, nombre, apellido, telefono, direccion=None, archivo_pdf=None, latitud=None, longitud=None):
         """
         Crea un nuevo usuario en Firebase Authentication y almacena información adicional en Firestore.
         Si el usuario ya existe, agrega el nuevo rol a la lista de roles.
@@ -24,6 +24,8 @@ class UserService:
         :param telefono: Teléfono del usuario.
         :param direccion: Dirección del usuario (opcional).
         :param archivo_pdf: Archivo PDF para proveedores (opcional).
+        :param latitud: Latitud de la dirección (opcional).
+        :param longitud: Longitud de la dirección (opcional).
         :return: UID del usuario creado o None si hay un error.
         """
         if tipo_usuario not in ['cliente', 'proveedor']:
@@ -63,7 +65,12 @@ class UserService:
                     'tipo_usuario': [tipo_usuario],  # Almacenar el rol como una lista
                     'nombre': nombre,
                     'apellido': apellido,
-                    'telefono': telefono
+                    'telefono': telefono,
+                    'direccion': direccion,
+                    'ubicacion': {
+                        'lat': latitud,
+                        'lng': longitud
+                    }
                 }
 
                 # Si el usuario es un proveedor, subir el archivo PDF y almacenar la URL
@@ -73,10 +80,6 @@ class UserService:
                         user_data['pdf_url'] = pdf_url
                     else:
                         print("Error al subir el archivo PDF.")
-                
-                # Si el usuario es un proveedor o cliente, almacenar la dirección
-                if tipo_usuario == 'proveedor' or tipo_usuario == 'cliente':
-                    user_data['direccion'] = direccion
                 
                 # Guardar los datos del usuario en Firestore
                 self.db.collection('usuarios').document(user_uid).set(user_data)
