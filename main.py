@@ -1,10 +1,11 @@
-from typing import Union
-from fastapi import FastAPI, HTTPException, File, UploadFile, Form
+from typing import Union, List
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from services.firebase_service import FirebaseService
 from services.google_maps import GoogleMaps
 from services.user_service import UserService
+from services.messages_service import MessageService, MessageSend, MessageReceive
 
 # Modelos Pydantic para las solicitudes
 class UserCreateRequest(BaseModel):
@@ -27,6 +28,7 @@ cred_path = 'serviceshomebackend-firebase.json'
 firebase_service = FirebaseService(cred_path)
 google_maps_service = GoogleMaps()
 user_service = UserService(firebase_service.db, firebase_service)
+message_service = MessageService(firebase_service.db)
 
 # Configuración de FastAPI
 app = FastAPI()
@@ -121,6 +123,26 @@ def login(user: UserLoginRequest):
             raise HTTPException(status_code=404, detail="Usuario no encontrado en Firestore")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al autenticar usuario: {str(e)}")
+    
+# Ruta para enviar un mensaje
+@app.post("/send-message", response_model=dict)
+async def send_message(message: MessageSend):
+    """
+    Envía un mensaje de un usuario a otro.
+    """
+    # Aquí asumimos que el UID del remitente se pasa en el cuerpo de la solicitud.
+    if not message_service.send_message(message.sender_uid, message.receiver_uid, message.text):
+        raise HTTPException(status_code=400, detail="Error al enviar el mensaje")
+    return {"message": "Mensaje enviado correctamente"}
+
+# Ruta para obtener los mensajes recibidos
+@app.get("/received-messages", response_model=List[MessageReceive])
+async def get_received_messages(receiver_uid: str):
+    """
+    Obtiene todos los mensajes recibidos por un usuario.
+    """
+    messages = message_service.get_received_messages(receiver_uid)
+    return messages
 
 # Ruta para el chequeo de estado de la API HEALTCHECK
 @app.get("/healthcheck")
